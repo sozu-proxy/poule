@@ -11,7 +11,7 @@
 //! use poule::{Pool, Dirty};
 //! use std::thread;
 //!
-//! let mut pool = Pool::with_capacity(20, 0, || Dirty(Vec::with_capacity(16_384)));
+//! let mut pool = Pool::with_capacity(20, || Dirty(Vec::with_capacity(16_384)));
 //!
 //! let mut vec = pool.checkout().unwrap();
 //!
@@ -34,13 +34,6 @@
 //! assert_eq!(10_000, vec.len());
 //!
 //! ```
-//!
-//! ## Extra byte storage
-//!
-//! Each value in the pool can be padded with an arbitrary number of bytes that
-//! can be accessed as a slice. This is useful if implementing something like a
-//! pool of buffers. The metadata could be stored as the `Pool` value and the
-//! byte array can be stored in the padding.
 //!
 //! ## Threading
 //!
@@ -65,15 +58,12 @@ pub struct Pool<T: Reset> {
 }
 
 impl<T: Reset> Pool<T> {
-    /// Creates a new pool that can contain up to `capacity` entries as well as
-    /// `extra` extra bytes. Initializes each entry with the given function.
-    pub fn with_capacity<F>(count: usize, mut extra: usize, init: F) -> Pool<T>
+    /// Creates a new pool that can contain up to `capacity` entries.
+    /// Initializes each entry with the given function.
+    pub fn with_capacity<F>(count: usize, init: F) -> Pool<T>
             where F: Fn() -> T {
 
-        let mut inner = PoolInner::with_capacity(count, extra);
-
-        // Get the actual number of extra bytes
-        extra = inner.entry_size - mem::size_of::<Entry<T>>();
+        let mut inner = PoolInner::with_capacity(count);
 
         // Initialize the entries
         for i in 0..count {
@@ -81,7 +71,6 @@ impl<T: Reset> Pool<T> {
                 ptr::write(inner.entry_mut(i), Entry {
                     data: init(),
                     next: i + 1,
-                    extra: extra,
                 });
             }
             inner.init += 1;
@@ -123,16 +112,6 @@ pub struct Checkout<T> {
 }
 
 impl<T> Checkout<T> {
-    /// Read access to the raw bytes
-    pub fn extra(&self) -> &[u8] {
-        self.entry().extra()
-    }
-
-    /// Write access to the extra bytes
-    pub fn extra_mut(&mut self) -> &mut [u8] {
-        self.entry_mut().extra_mut()
-    }
-
     fn entry(&self) -> &Entry<T> {
         unsafe { mem::transmute(self.entry) }
     }
@@ -183,7 +162,7 @@ struct PoolInner<T> {
 const MAX: usize = usize::MAX >> 1;
 
 impl<T> PoolInner<T> {
-    fn with_capacity(count: usize, mut extra: usize) -> PoolInner<T> {
+    fn with_capacity(count: usize) -> PoolInner<T> {
         // The required alignment for the entry. The start of the entry must
         // align with this number
         let align = mem::align_of::<Entry<T>>();
@@ -194,15 +173,8 @@ impl<T> PoolInner<T> {
 
         let mask = align - 1;
 
-        // If the requested extra memory does not match with the align,
-        // increase it so that it does.
-        if extra & mask != 0 {
-            extra = (extra + align) & !mask;
-        }
-
-        // Calculate the size of each entry. Since the extra bytes are
-        // immediately after the entry, just add the sizes
-        let entry_size = mem::size_of::<Entry<T>>() + extra;
+        // Calculate the size of each entry
+        let entry_size = mem::size_of::<Entry<T>>();
 
         // This should always be true, but let's check it anyway
         assert!(entry_size & mask == 0, "entry size is not aligned");
@@ -317,25 +289,6 @@ impl<T> Drop for PoolInner<T> {
 struct Entry<T> {
     data: T,       // Keep first
     next: usize,   // Index of next available entry
-    extra: usize,  // Number of extra bytes available
-}
-
-impl<T> Entry<T> {
-    fn extra(&self) -> &[u8] {
-        use std::slice;
-
-        unsafe {
-            let ptr: *const u8 = mem::transmute(self);
-            let ptr = ptr.offset(mem::size_of::<Entry<T>>() as isize);
-
-            slice::from_raw_parts(ptr, self.extra)
-        }
-    }
-
-    #[allow(mutable_transmutes)]
-    fn extra_mut(&mut self) -> &mut [u8] {
-        unsafe { mem::transmute(self.extra()) }
-    }
 }
 
 /// Allocate memory

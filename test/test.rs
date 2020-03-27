@@ -4,7 +4,7 @@ use poule::{Pool, Dirty};
 
 #[test]
 pub fn test_checkout_checkin() {
-    let mut pool: Pool<Dirty<i32>> = Pool::with_capacity(10, 0, || Dirty(0));
+    let mut pool: Pool<Dirty<i32>> = Pool::with_capacity(10, || Dirty(0));
 
     let mut val = pool.checkout().unwrap();
     assert_eq!(**val, 0);
@@ -19,7 +19,7 @@ pub fn test_checkout_checkin() {
 
 #[test]
 pub fn test_multiple_checkouts() {
-    let mut pool: Pool<i32> = Pool::with_capacity(10, 0, || 0);
+    let mut pool: Pool<i32> = Pool::with_capacity(10, || 0);
 
     // Use this to hold on to the checkouts
     let mut vec = vec![];
@@ -34,7 +34,7 @@ pub fn test_multiple_checkouts() {
 
 #[test]
 pub fn test_depleting_pool() {
-    let mut pool: Pool<i32> = Pool::with_capacity(5, 0, || 0);
+    let mut pool: Pool<i32> = Pool::with_capacity(5, || 0);
 
     let mut vec = vec![];
 
@@ -49,7 +49,7 @@ pub fn test_depleting_pool() {
 
 #[test]
 pub fn test_resetting_pool() {
-    let mut pool: Pool<Vec<i32>> = Pool::with_capacity(1, 0, || Vec::new());
+    let mut pool: Pool<Vec<i32>> = Pool::with_capacity(1, || Vec::new());
     {
         let mut val = pool.checkout().unwrap();
         val.push(5);
@@ -72,13 +72,13 @@ impl Drop for Zomg {
 
 #[test]
 pub fn test_works_with_drop_types() {
-    let _ = poule::Pool::with_capacity(1, 0, || Zomg);
+    let _ = poule::Pool::with_capacity(1, || Zomg);
 }
 
 #[test]
 #[should_panic]
 pub fn test_safe_when_init_panics() {
-    let _ = poule::Pool::<Zomg>::with_capacity(1, 0, || panic!("oops"));
+    let _ = poule::Pool::<Zomg>::with_capacity(1, || panic!("oops"));
 }
 
 // TODO: Add concurrency stress tests
