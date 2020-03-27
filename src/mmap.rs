@@ -69,7 +69,7 @@ impl GrowableMemoryMap {
         let size = page_size(size);
 
         if size <= self.size {
-            return Err("new size should be larger than old size");
+            return Ok(());
         }
 
         if size > self.capacity {

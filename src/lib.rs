@@ -11,7 +11,7 @@
 //! use poule::{Pool, Dirty};
 //! use std::thread;
 //!
-//! let mut pool = Pool::with_capacity(20, || Dirty(Vec::with_capacity(16_384)));
+//! let mut pool = Pool::with_capacity(20, 20, || Dirty(Vec::with_capacity(16_384)));
 //!
 //! let mut vec = pool.checkout().unwrap();
 //!
@@ -59,15 +59,18 @@ pub struct Pool<T: Reset> {
 }
 
 impl<T: Reset> Pool<T> {
-    /// Creates a new pool that can contain up to `capacity` entries.
-    /// Initializes each entry with the given function.
-    pub fn with_capacity<F>(count: usize, init: F) -> Pool<T>
+    /// Creates a new pool that can contain up to `maximum` entries.
+    /// Initializes each of the `minimum` entries with the given function.
+    pub fn with_capacity<F>(minimum: usize, maximum: usize, init: F) -> Pool<T>
             where F: Fn() -> T {
 
-        let mut inner = PoolInner::with_capacity(count);
+        assert!(minimum <= maximum, "the minimum number of entries must be lower than the maximum");
+        let mut inner = PoolInner::with_capacity(maximum);
+
+        inner.grow_to(minimum);
 
         // Initialize the entries
-        for i in 0..count {
+        for i in 0..minimum {
             unsafe {
                 ptr::write(inner.entry_mut(i), Entry {
                     data: init(),
@@ -78,6 +81,23 @@ impl<T: Reset> Pool<T> {
         }
 
         Pool { inner: Arc::new(UnsafeCell::new(inner)) }
+    }
+
+    pub fn grow_to<F>(&mut self, count: usize, init: F)
+            where F: Fn() -> T {
+
+        self.inner_mut().grow_to(count).expect("could not grow pool");
+
+        let min = self.inner_mut().init;
+        for i in min..count {
+            unsafe {
+                ptr::write(self.inner_mut().entry_mut(i), Entry {
+                    data: init(),
+                    next: i + 1,
+                });
+            }
+            self.inner_mut().init += 1;
+        }
     }
 
     /// Checkout a value from the pool. Returns `None` if the pool is currently
@@ -156,7 +176,7 @@ struct PoolInner<T> {
     ptr: *mut Entry<T>, // Pointer to first entry
     init: usize,        // Number of initialized entries
     count: usize,       // Total number of entries
-    entry_size: usize,  // Byte size of each entry
+    maximum: usize,     // maximum number of entries
 }
 
 // Max size of the pool
@@ -191,16 +211,29 @@ impl<T> PoolInner<T> {
         // Allocate the memory
         let mut memory = mmap::GrowableMemoryMap::new(size).expect("could not generate memory map");
         let ptr = memory.ptr();
-        memory.grow_to(size);
 
         PoolInner {
             memory,
             next: AtomicUsize::new(0),
             ptr: ptr as *mut Entry<T>,
             init: 0,
-            count: count,
-            entry_size: entry_size,
+            count: 0,
+            maximum: count,
         }
+    }
+
+    fn grow_to(&mut self, count: usize) -> Result<(), &'static str> {
+        if count > self.maximum {
+            return Err("cannot grow larger than the maximum number of entries");
+        }
+
+        let entry_size = mem::size_of::<Entry<T>>();
+        let ptr = self.memory.ptr();
+        let size = count * entry_size;
+        self.memory.grow_to(size)?;
+        self.count = count;
+
+        Ok(())
     }
 
     fn checkout(&mut self) -> Option<*mut Entry<T>> {
@@ -236,9 +269,10 @@ impl<T> PoolInner<T> {
         let idx;
         let mut entry: &mut Entry<T>;
 
+        let entry_size = mem::size_of::<Entry<T>>();
         unsafe {
             // Figure out the index
-            idx = ((ptr as usize) - (self.ptr as usize)) / self.entry_size;
+            idx = ((ptr as usize) - (self.ptr as usize)) / entry_size;
             entry = mem::transmute(ptr);
         }
 
