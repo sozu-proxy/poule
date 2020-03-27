@@ -20,7 +20,7 @@ To use `poule`, first add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-poule = "0.1.4"
+poule = "0.2.0"
 ```
 
 Then, add this to your crate root:
