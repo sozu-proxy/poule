@@ -29,9 +29,7 @@ pub struct GrowableMemoryMap {
 
 impl GrowableMemoryMap {
     pub fn new(capacity: usize) -> Result<Self, &'static str> {
-        if capacity % 0x1000 != 0 {
-            return Err("capacity should be aligned to 4096 bytes");
-        }
+        let capacity = page_size(capacity);
 
         let ptr = unsafe {
             mmap(
@@ -64,9 +62,7 @@ impl GrowableMemoryMap {
     }
 
     pub fn grow_to(&mut self, size: usize) -> Result<(), &'static str> {
-        if size % 0x1000 != 0 {
-            return Err("size should be aligned to 4096 bytes");
-        }
+        let size = page_size(size);
 
         if size <= self.size {
             return Err("new size should be larger than old size");
@@ -106,6 +102,17 @@ impl Drop for GrowableMemoryMap {
             println!("could not unmap");
         }
     }
+}
+
+pub fn page_size(data_len: usize) -> usize {
+  let count = data_len / 0x1000;
+  let rem = data_len % 0x1000;
+
+  if rem == 0 {
+    data_len
+  } else {
+    (count+1) * 0x1000
+  }
 }
 
 #[cfg(test)]
