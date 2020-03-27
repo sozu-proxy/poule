@@ -18,6 +18,9 @@ exclude       = [
   "test/**/*",
 ]
 
+[dependencies]
+libc = "0.2"
+
 [[test]]
 
 name = "test"

@@ -51,6 +51,7 @@ use std::sync::atomic::{self, AtomicUsize, Ordering};
 pub use reset::{Reset, Dirty};
 
 mod reset;
+mod mmap;
 
 /// A pool of reusable values
 pub struct Pool<T: Reset> {
