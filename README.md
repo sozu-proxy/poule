@@ -1,4 +1,6 @@
-# A pool of reusable values
+# A growable pool of reusable values
+
+(originally based on the [pool crate](https://crates.io/crates/pool))
 
 A Rust library providing a pool structure for managing reusable values.
 All values in the pool are initialized when the pool is created. Values
@@ -6,25 +8,25 @@ can be checked out from the pool at any time. When the checked out value
 goes out of scope, the value is returned to the pool and made available
 for checkout at a later time.
 
-[![Build Status](https://travis-ci.org/carllerche/pool.svg?branch=master)](https://travis-ci.org/carllerche/pool)
+[![Build Status](https://travis-ci.org/sozu-proxy/poule.svg?branch=master)](https://travis-ci.org/sozu-proxy/poule)
 
-- [API documentation](http://carllerche.github.io/pool/pool/)
+- [API documentation](https://docs.rs/poule)
 
-- [Crates.io](https://crates.io/crates/pool)
+- [Crates.io](https://crates.io/crates/poule)
 
 ## Usage
 
-To use `pool`, first add this to your `Cargo.toml`:
+To use `poule`, first add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool = "0.1.3"
+poule = "0.1.4"
 ```
 
 Then, add this to your crate root:
 
 ```rust
-extern crate pool;
+extern crate poule;
 ```
 
 ## Features

@@ -1,6 +1,6 @@
-extern crate pool;
+extern crate poule;
 
-use pool::{Pool, Dirty};
+use poule::{Pool, Dirty};
 
 #[test]
 pub fn test_checkout_checkin() {
@@ -72,13 +72,13 @@ impl Drop for Zomg {
 
 #[test]
 pub fn test_works_with_drop_types() {
-    let _ = pool::Pool::with_capacity(1, 0, || Zomg);
+    let _ = poule::Pool::with_capacity(1, 0, || Zomg);
 }
 
 #[test]
 #[should_panic]
 pub fn test_safe_when_init_panics() {
-    let _ = pool::Pool::<Zomg>::with_capacity(1, 0, || panic!("oops"));
+    let _ = poule::Pool::<Zomg>::with_capacity(1, 0, || panic!("oops"));
 }
 
 // TODO: Add concurrency stress tests

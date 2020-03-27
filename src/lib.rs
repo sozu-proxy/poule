@@ -8,7 +8,7 @@
 //! Example:
 //!
 //! ```
-//! use pool::{Pool, Dirty};
+//! use poule::{Pool, Dirty};
 //! use std::thread;
 //!
 //! let mut pool = Pool::with_capacity(20, 0, || Dirty(Vec::with_capacity(16_384)));

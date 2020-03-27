@@ -1,15 +1,16 @@
 [package]
 
-name          = "pool"
+name          = "poule"
 version       = "0.1.4"
 license       = "MIT"
-authors       = ["Carl Lerche <me@carllerche.com>"]
+authors       = ["Carl Lerche <me@carllerche.com>", "Geoffroy Couprie <contact@geoffroycouprie.com>"]
 description   = "A pool of reusable values"
-documentation = "https://carllerche.github.io/pool/pool"
-homepage      = "https://github.com/carllerche/pool"
-repository    = "https://github.com/carllerche/pool"
+documentation = "https://docs.rs/poule"
+homepage      = "https://github.com/sozu-proxy/poule"
+repository    = "https://github.com/sozu-proxy/poule"
 readme        = "README.md"
 keywords      = ["pool"]
+edition       = "2018"
 exclude       = [
   ".gitignore",
   ".travis.yml",
