@@ -151,7 +151,7 @@ unsafe impl<T: Sync> Sync for Checkout<T> { }
 
 struct PoolInner<T> {
     #[allow(dead_code)]
-    memory: Box<[u8]>,  // Ownership of raw memory
+    memory: mmap::GrowableMemoryMap,  // Ownership of raw memory
     next: AtomicUsize,  // Offset to next available value
     ptr: *mut Entry<T>, // Pointer to first entry
     init: usize,        // Number of initialized entries
@@ -189,7 +189,9 @@ impl<T> PoolInner<T> {
         let size = count * entry_size;
 
         // Allocate the memory
-        let (memory, ptr) = alloc(size, align);
+        let mut memory = mmap::GrowableMemoryMap::new(size).expect("could not generate memory map");
+        let ptr = memory.ptr();
+        memory.grow_to(size);
 
         // Zero out the memory for safety
         unsafe {
@@ -197,7 +199,7 @@ impl<T> PoolInner<T> {
         }
 
         PoolInner {
-            memory: memory,
+            memory,
             next: AtomicUsize::new(0),
             ptr: ptr as *mut Entry<T>,
             init: 0,
@@ -236,7 +238,7 @@ impl<T> PoolInner<T> {
     }
 
     fn checkin(&self, ptr: *mut Entry<T>) {
-        let mut idx;
+        let idx;
         let mut entry: &mut Entry<T>;
 
         unsafe {

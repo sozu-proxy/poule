@@ -53,6 +53,10 @@ impl GrowableMemoryMap {
         })
     }
 
+    pub fn ptr(&self) -> *mut u8 {
+        self.ptr
+    }
+
     pub fn size(&self) -> usize {
         self.size
     }
