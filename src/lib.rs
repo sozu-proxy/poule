@@ -193,11 +193,6 @@ impl<T> PoolInner<T> {
         let ptr = memory.ptr();
         memory.grow_to(size);
 
-        // Zero out the memory for safety
-        unsafe {
-            ptr::write_bytes(ptr, 0, size);
-        }
-
         PoolInner {
             memory,
             next: AtomicUsize::new(0),
