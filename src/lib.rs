@@ -11,9 +11,9 @@
 //! use poule::{Pool, Dirty};
 //! use std::thread;
 //!
-//! let mut pool = Pool::with_capacity(20, 20, || Dirty(Vec::with_capacity(16_384)));
+//! let mut pool = Pool::with_capacity(20, 20);
 //!
-//! let mut vec = pool.checkout().unwrap();
+//! let mut vec = pool.checkout(|| Dirty(Vec::with_capacity(16_384))).unwrap();
 //!
 //! // Do some work with the value, this can happen in another thread
 //! thread::spawn(move || {
@@ -25,7 +25,7 @@
 //! }).join();
 //!
 //! // The vec will have been returned to the pool by now
-//! let vec = pool.checkout().unwrap();
+//! let vec = pool.checkout(|| Dirty(Vec::with_capacity(16_384))).unwrap();
 //!
 //! // The pool operates LIFO, so this vec will be the same value that was used
 //! // in the thread above. The value will also be left as it was when it was
@@ -48,6 +48,7 @@ use std::{mem, ops, ptr, usize};
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize, Ordering};
+use std::io::Write;
 pub use reset::{Reset, Dirty};
 
 mod reset;
@@ -61,43 +62,19 @@ pub struct Pool<T: Reset> {
 impl<T: Reset> Pool<T> {
     /// Creates a new pool that can contain up to `maximum` entries.
     /// Initializes each of the `minimum` entries with the given function.
-    pub fn with_capacity<F>(minimum: usize, maximum: usize, init: F) -> Pool<T>
-            where F: Fn() -> T {
+    pub fn with_capacity(minimum: usize, maximum: usize) -> Pool<T> {
 
         assert!(minimum <= maximum, "the minimum number of entries must be lower than the maximum");
         let mut inner = PoolInner::with_capacity(maximum);
 
         inner.grow_to(minimum);
 
-        // Initialize the entries
-        for i in 0..minimum {
-            unsafe {
-                ptr::write(inner.entry_mut(i), Entry {
-                    data: init(),
-                    next: i + 1,
-                });
-            }
-            inner.init += 1;
-        }
-
         Pool { inner: Arc::new(UnsafeCell::new(inner)) }
     }
 
-    pub fn grow_to<F>(&mut self, count: usize, init: F)
-            where F: Fn() -> T {
+    pub fn grow_to(&mut self, count: usize) {
 
         self.inner_mut().grow_to(count).expect("could not grow pool");
-
-        let min = self.inner_mut().init;
-        for i in min..count {
-            unsafe {
-                ptr::write(self.inner_mut().entry_mut(i), Entry {
-                    data: init(),
-                    next: i + 1,
-                });
-            }
-            self.inner_mut().init += 1;
-        }
     }
 
     /// Checkout a value from the pool. Returns `None` if the pool is currently
@@ -105,9 +82,31 @@ impl<T: Reset> Pool<T> {
     ///
     /// The value returned from the pool has not been reset and contains the
     /// state that it previously had when it was last released.
-    pub fn checkout(&mut self) -> Option<Checkout<T>> {
-        self.inner_mut().checkout()
-            .map(|ptr| {
+    pub fn checkout<F>(&mut self, init: F) -> Option<Checkout<T>>
+      where F: Fn() -> T {
+        let entry = match self.inner_mut().checkout() {
+          Some(e) => Some(e),
+          None => {
+
+              std::io::stdout().flush();
+              let min = self.inner_mut().init;
+              if min < self.inner_mut().count {
+                  unsafe {
+                      ptr::write(self.inner_mut().entry_mut(min), Entry {
+                          data: init(),
+                          next: min + 1,
+                      });
+                  }
+                  self.inner_mut().init += 1;
+
+                  self.inner_mut().checkout()
+              } else {
+                  None
+              }
+          },
+        };
+
+        entry.map(|ptr| {
                 Checkout {
                     entry: ptr,
                     inner: self.inner.clone(),
@@ -242,14 +241,14 @@ impl<T> PoolInner<T> {
         loop {
             debug_assert!(idx <= self.count, "invalid index: {}", idx);
 
-            if idx == self.count {
+            if idx == self.init {
                 // The pool is depleted
                 return None;
             }
 
             let nxt = self.entry_mut(idx).next;
 
-            debug_assert!(nxt <= self.count, "invalid next index: {}", idx);
+            debug_assert!(nxt <= self.init, "invalid next index: {}", idx);
 
             let res = self.next.compare_and_swap(idx, nxt, Ordering::Relaxed);
 
