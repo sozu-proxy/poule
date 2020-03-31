@@ -114,6 +114,18 @@ impl<T: Reset> Pool<T> {
     fn inner_mut(&self) -> &mut PoolInner<T> {
         unsafe { mem::transmute(self.inner.get()) }
     }
+
+    pub fn capacity(&self) -> usize {
+        self.inner_mut().maximum
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner_mut().init
+    }
+
+    pub fn memory_size(&self) -> usize {
+        self.inner_mut().count * self.inner_mut().entry_size
+    }
 }
 
 unsafe impl<T: Send + Reset> Send for Pool<T> {}
