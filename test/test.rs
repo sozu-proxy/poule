@@ -131,4 +131,3 @@ pub fn test_safe_when_init_panics() {
     let _ = p.checkout(|| panic!("oops"));
 }
 
-// TODO: Add concurrency stress tests

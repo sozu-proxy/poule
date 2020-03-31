@@ -87,8 +87,6 @@ impl<T: Reset> Pool<T> {
         let entry = match self.inner_mut().checkout() {
           Some(e) => Some(e),
           None => {
-
-              std::io::stdout().flush();
               let min = self.inner_mut().init;
               if min < self.inner_mut().count {
                   unsafe {
@@ -361,28 +359,3 @@ impl<T> Entry<T> {
     }
 }
 
-/// Allocate memory
-fn alloc(mut size: usize, align: usize) -> (Box<[u8]>, *mut u8) {
-    size += align;
-
-    unsafe {
-        // Allocate the memory
-        let mut vec = Vec::with_capacity(size);
-        vec.set_len(size);
-
-        // Juggle values around
-        let mut mem = vec.into_boxed_slice();
-        let ptr = (*mem).as_mut_ptr();
-
-        // Align the pointer
-        let p = ptr as usize;
-        let m = align - 1;
-
-        if p & m != 0 {
-            let p = (p + align) & !m;
-            return (mem, p as *mut u8);
-        }
-
-        (mem, ptr)
-    }
-}
