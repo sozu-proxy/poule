@@ -116,6 +116,10 @@ impl<T: Reset> Pool<T> {
     }
 
     pub fn capacity(&self) -> usize {
+        self.inner_mut().count
+    }
+
+    pub fn maximum_capacity(&self) -> usize {
         self.inner_mut().maximum
     }
 
