@@ -11,7 +11,8 @@
 //! use poule::{Pool, Dirty};
 //! use std::thread;
 //!
-//! let mut pool = Pool::with_capacity(20, 20);
+//! let mut pool = Pool::with_capacity(20);
+//! pool.grow_to(10);
 //!
 //! let mut vec = pool.checkout(|| Dirty(Vec::with_capacity(16_384))).unwrap();
 //!
@@ -61,19 +62,12 @@ pub struct Pool<T: Reset> {
 
 impl<T: Reset> Pool<T> {
     /// Creates a new pool that can contain up to `maximum` entries.
-    /// Initializes each of the `minimum` entries with the given function.
-    pub fn with_capacity(minimum: usize, maximum: usize) -> Pool<T> {
-
-        assert!(minimum <= maximum, "the minimum number of entries must be lower than the maximum");
+    pub fn with_capacity(maximum: usize) -> Pool<T> {
         let mut inner = PoolInner::with_capacity(maximum);
-
-        inner.grow_to(minimum);
-
         Pool { inner: Arc::new(UnsafeCell::new(inner)) }
     }
 
     pub fn grow_to(&mut self, count: usize) {
-
         self.inner_mut().grow_to(count).expect("could not grow pool");
     }
 
