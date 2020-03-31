@@ -267,8 +267,7 @@ impl<T> PoolInner<T> {
             return Err("cannot grow larger than the maximum number of entries");
         }
 
-        let entry_size = mem::size_of::<Entry<T>>();
-        let size = count * entry_size;
+        let size = count * self.entry_size;
         self.memory.grow_to(size)?;
         self.count = count;
 
@@ -359,7 +358,7 @@ impl<T> PoolInner<T> {
     fn entry(&self, idx: usize) -> &Entry<T> {
         unsafe {
             debug_assert!(idx < self.count, "invalid index");
-            let ptr = self.ptr.offset(idx as isize);
+            let ptr = (self.ptr as usize + idx * self.entry_size as usize) as *mut Entry<T>;
             mem::transmute(ptr)
         }
     }
