@@ -126,6 +126,10 @@ impl<T: Reset> Pool<T> {
     pub fn memory_size(&self) -> usize {
         self.inner_mut().count * self.inner_mut().entry_size
     }
+
+    pub fn used(&self) -> usize {
+        self.inner_mut().used.load(Ordering::Relaxed)
+    }
 }
 
 unsafe impl<T: Send + Reset> Send for Pool<T> {}
@@ -193,6 +197,7 @@ struct PoolInner<T> {
     count: usize,       // Total number of entries
     maximum: usize,     // maximum number of entries
     entry_size: usize,  // Byte size of each entry
+    used: AtomicUsize,  // Number of elements currently checked out
 }
 
 // Max size of the pool
@@ -249,6 +254,7 @@ impl<T> PoolInner<T> {
             count: 0,
             maximum: count,
             entry_size,
+            used: AtomicUsize::new(0),
         }
     }
 
@@ -313,6 +319,7 @@ impl<T> PoolInner<T> {
             idx = res;
         }
 
+        self.used.fetch_add(1, Ordering::Relaxed);
         Some(self.entry_mut(idx) as *mut Entry<T>)
     }
 
@@ -342,6 +349,7 @@ impl<T> PoolInner<T> {
 
             nxt = actual;
         }
+        self.used.fetch_sub(1, Ordering::Relaxed);
     }
 
     fn entry(&self, idx: usize) -> &Entry<T> {
