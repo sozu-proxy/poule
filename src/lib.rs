@@ -180,7 +180,7 @@ struct PoolInner<T> {
     init: usize,        // Number of initialized entries
     count: usize,       // Total number of entries
     maximum: usize,     // maximum number of entries
-    extra: usize,       // number of trailing bytes in entries
+    entry_size: usize,  // Byte size of each entry
 }
 
 // Max size of the pool
@@ -236,7 +236,7 @@ impl<T> PoolInner<T> {
             init: 0,
             count: 0,
             maximum: count,
-            extra,
+            entry_size,
         }
     }
 
@@ -263,7 +263,7 @@ impl<T> PoolInner<T> {
                     Entry {
                         data: initializer(),
                         next: self.init + 1,
-                        extra: self.extra,
+                        extra: self.entry_size - mem::size_of::<Entry<T>>(),
                     },
                     );
             }
@@ -308,10 +308,9 @@ impl<T> PoolInner<T> {
         let idx;
         let mut entry: &mut Entry<T>;
 
-        let entry_size = mem::size_of::<Entry<T>>();
         unsafe {
             // Figure out the index
-            idx = ((ptr as usize) - (self.ptr as usize)) / entry_size;
+            idx = ((ptr as usize) - (self.ptr as usize)) / self.entry_size;
             entry = mem::transmute(ptr);
         }
 
