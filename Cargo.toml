@@ -22,6 +22,9 @@ exclude       = [
 libc = "0.2"
 
 [[test]]
-
 name = "test"
 path = "test/test.rs"
+
+[[test]]
+name = "buffer"
+path = "test/buffer.rs"

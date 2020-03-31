@@ -63,7 +63,13 @@ pub struct Pool<T: Reset> {
 impl<T: Reset> Pool<T> {
     /// Creates a new pool that can contain up to `maximum` entries.
     pub fn with_capacity(maximum: usize) -> Pool<T> {
-        let mut inner = PoolInner::with_capacity(maximum);
+        Self::with_extra(maximum, 0)
+    }
+
+    /// Creates a new pool that can contain up to `maximum` entries.
+    /// each entry can have `extra` additional bytes to store data
+    pub fn with_extra(maximum: usize, extra: usize) -> Pool<T> {
+        let mut inner = PoolInner::with_capacity(maximum, extra);
         Pool { inner: Arc::new(UnsafeCell::new(inner)) }
     }
 
@@ -89,6 +95,7 @@ impl<T: Reset> Pool<T> {
                       ptr::write(self.inner_mut().entry_mut(min), Entry {
                           data: init(),
                           next: min + 1,
+                          extra: self.inner_mut().extra,
                       });
                   }
                   self.inner_mut().init += 1;
@@ -126,6 +133,16 @@ pub struct Checkout<T> {
 }
 
 impl<T> Checkout<T> {
+    /// Read access to the raw bytes
+    pub fn extra(&self) -> &[u8] {
+        self.entry().extra()
+    }
+
+    /// Write access to the extra bytes
+    pub fn extra_mut(&mut self) -> &mut [u8] {
+         self.entry_mut().extra_mut()
+    }
+
     fn entry(&self) -> &Entry<T> {
         unsafe { mem::transmute(self.entry) }
     }
@@ -170,13 +187,14 @@ struct PoolInner<T> {
     init: usize,        // Number of initialized entries
     count: usize,       // Total number of entries
     maximum: usize,     // maximum number of entries
+    extra: usize,       // number of trailing bytes in entries
 }
 
 // Max size of the pool
 const MAX: usize = usize::MAX >> 1;
 
 impl<T> PoolInner<T> {
-    fn with_capacity(count: usize) -> PoolInner<T> {
+    fn with_capacity(count: usize, mut extra: usize) -> PoolInner<T> {
         // The required alignment for the entry. The start of the entry must
         // align with this number
         let align = mem::align_of::<Entry<T>>();
@@ -187,8 +205,15 @@ impl<T> PoolInner<T> {
 
         let mask = align - 1;
 
-        // Calculate the size of each entry
-        let entry_size = mem::size_of::<Entry<T>>();
+        // If the requested extra memory does not match with the align,
+        // increase it so that it does.
+        if extra & mask != 0 {
+            extra = (extra + align) & !mask;
+        }
+
+        // Calculate the size of each entry. Since the extra bytes are
+        // immediately after the entry, just add the sizes
+        let entry_size = mem::size_of::<Entry<T>>() + extra;
 
         // This should always be true, but let's check it anyway
         assert!(entry_size & mask == 0, "entry size is not aligned");
@@ -212,6 +237,7 @@ impl<T> PoolInner<T> {
             init: 0,
             count: 0,
             maximum: count,
+            extra,
         }
     }
 
@@ -314,6 +340,25 @@ impl<T> Drop for PoolInner<T> {
 struct Entry<T> {
     data: T,       // Keep first
     next: usize,   // Index of next available entry
+    extra: usize,  // Number of extra byts available
+}
+
+impl<T> Entry<T> {
+    fn extra(&self) -> &[u8] {
+        use std::slice;
+
+        unsafe {
+            let ptr: *const u8 = mem::transmute(self);
+            let ptr = ptr.offset(mem::size_of::<Entry<T>>() as isize);
+
+            slice::from_raw_parts(ptr, self.extra)
+        }
+    }
+
+    #[allow(mutable_transmutes)]
+    fn extra_mut(&mut self) -> &mut [u8] {
+        unsafe { mem::transmute(self.extra()) }
+    }
 }
 
 /// Allocate memory
