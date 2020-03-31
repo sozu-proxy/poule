@@ -1,6 +1,6 @@
 extern crate poule;
 
-use poule::{Pool, Dirty};
+use poule::{Dirty, Pool};
 
 #[test]
 pub fn test_checkout_checkin() {
@@ -42,22 +42,29 @@ pub fn test_depleting_pool() {
     let mut vec = vec![];
 
     for _ in 0..5 {
-        vec.push(pool.checkout(|| {
-            println!("initializing element A");
-            0
-        }).unwrap());
+        vec.push(
+            pool.checkout(|| {
+                println!("initializing element A");
+                0
+            })
+            .unwrap(),
+        );
     }
 
-    assert!(pool.checkout(|| {
-        println!("initializing element B");
-        0
-    }).is_none());
+    assert!(pool
+        .checkout(|| {
+            println!("initializing element B");
+            0
+        })
+        .is_none());
     drop(vec);
     println!("dropped vec");
-    assert!(pool.checkout(|| {
-        println!("initializing element C");
-        0
-    }).is_some());
+    assert!(pool
+        .checkout(|| {
+            println!("initializing element C");
+            0
+        })
+        .is_some());
 }
 
 #[test]
@@ -130,4 +137,3 @@ pub fn test_safe_when_init_panics() {
     p.grow_to(1);
     let _ = p.checkout(|| panic!("oops"));
 }
-

@@ -4,8 +4,7 @@ use std::{
 };
 
 use libc::{
-    mmap, mprotect, munmap, MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE,
-    PROT_READ, PROT_WRITE,
+    mmap, mprotect, munmap, MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE,
 };
 
 /// Memory map backend for the pool
@@ -109,14 +108,14 @@ impl Drop for GrowableMemoryMap {
 }
 
 pub fn page_size(data_len: usize) -> usize {
-  let count = data_len / 0x1000;
-  let rem = data_len % 0x1000;
+    let count = data_len / 0x1000;
+    let rem = data_len % 0x1000;
 
-  if rem == 0 {
-    data_len
-  } else {
-    (count+1) * 0x1000
-  }
+    if rem == 0 {
+        data_len
+    } else {
+        (count + 1) * 0x1000
+    }
 }
 
 #[cfg(test)]

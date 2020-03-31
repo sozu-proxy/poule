@@ -45,14 +45,14 @@
 //!
 //! The easiest way to have a single pool shared across many threads would be
 //! to wrap `Pool` in a mutex.
-use std::{mem, ops, ptr, usize};
+pub use reset::{Dirty, Reset};
 use std::cell::UnsafeCell;
-use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize, Ordering};
-pub use reset::{Reset, Dirty};
+use std::sync::Arc;
+use std::{mem, ops, ptr, usize};
 
-mod reset;
 mod mmap;
+mod reset;
 
 /// A pool of reusable values
 pub struct Pool<T: Reset> {
@@ -69,11 +69,15 @@ impl<T: Reset> Pool<T> {
     /// each entry can have `extra` additional bytes to store data
     pub fn with_extra(maximum: usize, extra: usize) -> Pool<T> {
         let inner = PoolInner::with_capacity(maximum, extra);
-        Pool { inner: Arc::new(UnsafeCell::new(inner)) }
+        Pool {
+            inner: Arc::new(UnsafeCell::new(inner)),
+        }
     }
 
     pub fn grow_to(&mut self, count: usize) {
-        self.inner_mut().grow_to(count).expect("could not grow pool");
+        self.inner_mut()
+            .grow_to(count)
+            .expect("could not grow pool");
     }
 
     /// Checkout a value from the pool. Returns `None` if the pool is currently
@@ -82,34 +86,39 @@ impl<T: Reset> Pool<T> {
     /// The value returned from the pool has not been reset and contains the
     /// state that it previously had when it was last released.
     pub fn checkout<F>(&mut self, init: F) -> Option<Checkout<T>>
-      where F: Fn() -> T {
+    where
+        F: Fn() -> T,
+    {
         let entry = match self.inner_mut().checkout() {
-          Some(e) => Some(e),
-          None => {
-              let min = self.inner_mut().init;
-              if min < self.inner_mut().count {
-                  unsafe {
-                      ptr::write(self.inner_mut().entry_mut(min), Entry {
-                          data: init(),
-                          next: min + 1,
-                          extra: self.inner_mut().extra,
-                      });
-                  }
-                  self.inner_mut().init += 1;
+            Some(e) => Some(e),
+            None => {
+                let min = self.inner_mut().init;
+                if min < self.inner_mut().count {
+                    unsafe {
+                        ptr::write(
+                            self.inner_mut().entry_mut(min),
+                            Entry {
+                                data: init(),
+                                next: min + 1,
+                                extra: self.inner_mut().extra,
+                            },
+                        );
+                    }
+                    self.inner_mut().init += 1;
 
-                  self.inner_mut().checkout()
-              } else {
-                  None
-              }
-          },
+                    self.inner_mut().checkout()
+                } else {
+                    None
+                }
+            }
         };
 
-        entry.map(|ptr| {
-                Checkout {
-                    entry: ptr,
-                    inner: self.inner.clone(),
-                }
-            }).map(|mut checkout| {
+        entry
+            .map(|ptr| Checkout {
+                entry: ptr,
+                inner: self.inner.clone(),
+            })
+            .map(|mut checkout| {
                 checkout.reset();
                 checkout
             })
@@ -120,7 +129,7 @@ impl<T: Reset> Pool<T> {
     }
 }
 
-unsafe impl<T: Send + Reset> Send for Pool<T> { }
+unsafe impl<T: Send + Reset> Send for Pool<T> {}
 
 /// A handle to a checked out value. When dropped out of scope, the value will
 /// be returned to the pool.
@@ -137,7 +146,7 @@ impl<T> Checkout<T> {
 
     /// Write access to the extra bytes
     pub fn extra_mut(&mut self) -> &mut [u8] {
-         self.entry_mut().extra_mut()
+        self.entry_mut().extra_mut()
     }
 
     fn entry(&self) -> &Entry<T> {
@@ -173,12 +182,12 @@ impl<T> Drop for Checkout<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Checkout<T> { }
-unsafe impl<T: Sync> Sync for Checkout<T> { }
+unsafe impl<T: Send> Send for Checkout<T> {}
+unsafe impl<T: Sync> Sync for Checkout<T> {}
 
 struct PoolInner<T> {
     #[allow(dead_code)]
-    memory: mmap::GrowableMemoryMap,  // Ownership of raw memory
+    memory: mmap::GrowableMemoryMap, // Ownership of raw memory
     next: AtomicUsize,  // Offset to next available value
     ptr: *mut Entry<T>, // Pointer to first entry
     init: usize,        // Number of initialized entries
@@ -198,7 +207,10 @@ impl<T> PoolInner<T> {
 
         // Check that the capacity is not too large
         assert!(count < MAX, "requested pool size too big");
-        assert!(align > 0, "something weird is up with the requested alignment");
+        assert!(
+            align > 0,
+            "something weird is up with the requested alignment"
+        );
 
         let mask = align - 1;
 
@@ -218,7 +230,10 @@ impl<T> PoolInner<T> {
         // Ensure that the total memory needed is possible. It must be
         // representable by an `isize` value in order for pointer offset to
         // work.
-        assert!(entry_size.checked_mul(count).is_some(), "requested pool capacity too big");
+        assert!(
+            entry_size.checked_mul(count).is_some(),
+            "requested pool capacity too big"
+        );
         assert!(entry_size * count < MAX, "requested pool capacity too big");
 
         let size = count * entry_size;
@@ -334,9 +349,9 @@ impl<T> Drop for PoolInner<T> {
 }
 
 struct Entry<T> {
-    data: T,       // Keep first
-    next: usize,   // Index of next available entry
-    extra: usize,  // Number of extra byts available
+    data: T,      // Keep first
+    next: usize,  // Index of next available entry
+    extra: usize, // Number of extra byts available
 }
 
 impl<T> Entry<T> {
@@ -356,4 +371,3 @@ impl<T> Entry<T> {
         unsafe { mem::transmute(self.extra()) }
     }
 }
-
