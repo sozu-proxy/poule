@@ -92,20 +92,7 @@ impl<T: Reset> Pool<T> {
         let entry = match self.inner_mut().checkout() {
             Some(e) => Some(e),
             None => {
-                let min = self.inner_mut().init;
-                if min < self.inner_mut().count {
-                    unsafe {
-                        ptr::write(
-                            self.inner_mut().entry_mut(min),
-                            Entry {
-                                data: init(),
-                                next: min + 1,
-                                extra: self.inner_mut().extra,
-                            },
-                        );
-                    }
-                    self.inner_mut().init += 1;
-
+                if self.inner_mut().initialize(init) {
                     self.inner_mut().checkout()
                 } else {
                     None
@@ -264,6 +251,28 @@ impl<T> PoolInner<T> {
         self.count = count;
 
         Ok(())
+    }
+
+    fn initialize<F>(&mut self, initializer: F) -> bool
+        where F: Fn() -> T {
+
+        if self.init < self.count {
+            unsafe {
+                ptr::write(
+                    self.entry_mut(self.init),
+                    Entry {
+                        data: initializer(),
+                        next: self.init + 1,
+                        extra: self.extra,
+                    },
+                    );
+            }
+            self.init += 1;
+
+            true
+        } else {
+            false
+        }
     }
 
     fn checkout(&mut self) -> Option<*mut Entry<T>> {
