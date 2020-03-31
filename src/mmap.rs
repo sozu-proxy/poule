@@ -4,7 +4,7 @@ use std::{
 };
 
 use libc::{
-    mmap, mprotect, mremap, munmap, size_t, MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE,
+    mmap, mprotect, munmap, MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE,
     PROT_READ, PROT_WRITE,
 };
 

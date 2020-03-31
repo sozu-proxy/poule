@@ -49,7 +49,6 @@ use std::{mem, ops, ptr, usize};
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize, Ordering};
-use std::io::Write;
 pub use reset::{Reset, Dirty};
 
 mod reset;
@@ -69,7 +68,7 @@ impl<T: Reset> Pool<T> {
     /// Creates a new pool that can contain up to `maximum` entries.
     /// each entry can have `extra` additional bytes to store data
     pub fn with_extra(maximum: usize, extra: usize) -> Pool<T> {
-        let mut inner = PoolInner::with_capacity(maximum, extra);
+        let inner = PoolInner::with_capacity(maximum, extra);
         Pool { inner: Arc::new(UnsafeCell::new(inner)) }
     }
 
@@ -225,7 +224,7 @@ impl<T> PoolInner<T> {
         let size = count * entry_size;
 
         // Allocate the memory
-        let mut memory = mmap::GrowableMemoryMap::new(size).expect("could not generate memory map");
+        let memory = mmap::GrowableMemoryMap::new(size).expect("could not generate memory map");
         let ptr = memory.ptr();
 
         PoolInner {
@@ -245,7 +244,6 @@ impl<T> PoolInner<T> {
         }
 
         let entry_size = mem::size_of::<Entry<T>>();
-        let ptr = self.memory.ptr();
         let size = count * entry_size;
         self.memory.grow_to(size)?;
         self.count = count;
