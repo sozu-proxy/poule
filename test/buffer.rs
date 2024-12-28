@@ -44,14 +44,6 @@ impl Vector {
         self.0.length -= 1;
         self.0.extra()[self.0.length]
     }
-
-    fn len(&self) -> usize {
-        self.0.length
-    }
-
-    fn capacity(&self) -> usize {
-        self.0.extra().len()
-    }
 }
 
 struct MyPool {
@@ -87,7 +79,7 @@ pub fn test_extra_bytes() {
     }
 
     let mut v = Vec::new();
-    for i in 0..1023 {
+    for _i in 0..1023 {
         v.push(pool.get().unwrap());
     }
 

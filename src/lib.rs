@@ -311,15 +311,14 @@ impl<T> PoolInner<T> {
 
             debug_assert!(nxt <= self.init, "invalid next index: {}", idx);
 
-            let res = self.next.compare_and_swap(idx, nxt, Ordering::Relaxed);
-
-            if res == idx {
-                break;
+            match self.next.compare_exchange(idx, nxt, Ordering::Relaxed, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(res) => {
+                    // Re-acquire the memory before trying again
+                    atomic::fence(Ordering::Acquire);
+                    idx = res;
+                }
             }
-
-            // Re-acquire the memory before trying again
-            atomic::fence(Ordering::Acquire);
-            idx = res;
         }
 
         self.used.fetch_add(1, Ordering::Relaxed);
@@ -328,7 +327,7 @@ impl<T> PoolInner<T> {
 
     fn checkin(&self, ptr: *mut Entry<T>) {
         let idx;
-        let mut entry: &mut Entry<T>;
+        let entry: &mut Entry<T>;
 
         unsafe {
             // Figure out the index
@@ -344,13 +343,10 @@ impl<T> PoolInner<T> {
             // Update the entry's next pointer
             entry.next = nxt;
 
-            let actual = self.next.compare_and_swap(nxt, idx, Ordering::Release);
-
-            if actual == nxt {
-                break;
+            match self.next.compare_exchange(nxt, idx, Ordering::Release, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(actual) => nxt = actual,
             }
-
-            nxt = actual;
         }
         self.used.fetch_sub(1, Ordering::Relaxed);
     }
