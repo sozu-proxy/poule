@@ -47,8 +47,8 @@
 //! to wrap `Pool` in a mutex.
 pub use reset::{Dirty, Reset};
 use std::cell::UnsafeCell;
-use std::sync::atomic::{self, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{self, AtomicUsize, Ordering};
 use std::{mem, ops, ptr, usize};
 
 mod mmap;
@@ -275,8 +275,9 @@ impl<T> PoolInner<T> {
     }
 
     fn initialize<F>(&mut self, initializer: F) -> bool
-        where F: Fn() -> T {
-
+    where
+        F: Fn() -> T,
+    {
         if self.init < self.count {
             unsafe {
                 ptr::write(
@@ -286,7 +287,7 @@ impl<T> PoolInner<T> {
                         next: self.init + 1,
                         extra: self.entry_size - mem::size_of::<Entry<T>>(),
                     },
-                    );
+                );
             }
             self.init += 1;
 
@@ -311,7 +312,10 @@ impl<T> PoolInner<T> {
 
             debug_assert!(nxt <= self.init, "invalid next index: {}", idx);
 
-            match self.next.compare_exchange(idx, nxt, Ordering::Relaxed, Ordering::Relaxed) {
+            match self
+                .next
+                .compare_exchange(idx, nxt, Ordering::Relaxed, Ordering::Relaxed)
+            {
                 Ok(_) => break,
                 Err(res) => {
                     // Re-acquire the memory before trying again
@@ -343,7 +347,10 @@ impl<T> PoolInner<T> {
             // Update the entry's next pointer
             entry.next = nxt;
 
-            match self.next.compare_exchange(nxt, idx, Ordering::Release, Ordering::Relaxed) {
+            match self
+                .next
+                .compare_exchange(nxt, idx, Ordering::Release, Ordering::Relaxed)
+            {
                 Ok(_) => break,
                 Err(actual) => nxt = actual,
             }

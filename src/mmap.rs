@@ -5,14 +5,13 @@ use std::{
 
 #[cfg(unix)]
 use libc::{
-    mmap, mprotect, munmap, MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE,
+    MAP_ANON, MAP_FAILED, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE, mmap, mprotect, munmap,
 };
 
 #[cfg(windows)]
 use windows_sys::Win32::System::Memory::{
-    VirtualAlloc, VirtualFree, VirtualProtect,
-    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE,
-    PAGE_NOACCESS, PAGE_READWRITE,
+    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, VirtualAlloc, VirtualFree,
+    VirtualProtect,
 };
 
 /// Memory map backend for the pool
@@ -39,14 +38,8 @@ impl GrowableMemoryMap {
     pub fn new(capacity: usize) -> Result<Self, &'static str> {
         let capacity = page_size(capacity);
 
-        let ptr = unsafe {
-            VirtualAlloc(
-                std::ptr::null_mut(),
-                capacity,
-                MEM_RESERVE,
-                PAGE_NOACCESS,
-            )
-        };
+        let ptr =
+            unsafe { VirtualAlloc(std::ptr::null_mut(), capacity, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
             return Err("could not map memory");
@@ -72,22 +65,12 @@ impl GrowableMemoryMap {
 
         unsafe {
             // Commit the memory and change protection
-            if VirtualAlloc(
-                self.ptr as _,
-                size,
-                MEM_COMMIT,
-                PAGE_READWRITE,
-            ).is_null() {
+            if VirtualAlloc(self.ptr as _, size, MEM_COMMIT, PAGE_READWRITE).is_null() {
                 return Err("could not commit memory");
             }
 
             let mut old_protect = 0;
-            if VirtualProtect(
-                self.ptr as _,
-                size,
-                PAGE_READWRITE,
-                &mut old_protect,
-            ) == 0 {
+            if VirtualProtect(self.ptr as _, size, PAGE_READWRITE, &mut old_protect) == 0 {
                 return Err("could not change permissions on memory");
             }
         }
