@@ -1,3 +1,16 @@
+// Known clippy lints from the unsafe transmute-heavy pool internals.
+// These should be addressed in a future refactor replacing transmutes with proper pointer casts.
+#![allow(
+    clippy::len_without_is_empty,
+    clippy::legacy_numeric_constants,
+    clippy::missing_transmute_annotations,
+    clippy::mut_from_ref,
+    clippy::ptr_offset_with_cast,
+    clippy::transmute_ptr_to_ref,
+    clippy::unnecessary_cast,
+    clippy::useless_transmute
+)]
+
 //! # A store of pre-initialized values.
 //!
 //! Values can be checked out when needed, operated on, and will automatically

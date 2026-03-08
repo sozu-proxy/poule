@@ -171,7 +171,7 @@ impl Drop for GrowableMemoryMap {
 }
 
 pub fn page_size(data_len: usize) -> usize {
-    let page_size = if cfg!(windows) { 0x1000 } else { 0x1000 };
+    let page_size = 0x1000;
     let count = data_len / page_size;
     let rem = data_len % page_size;
 
