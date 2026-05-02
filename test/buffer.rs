@@ -1,5 +1,3 @@
-extern crate poule;
-
 use poule::{Checkout, Pool, Reset};
 use std::ops::{Deref, DerefMut};
 

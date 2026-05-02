@@ -1,5 +1,3 @@
-extern crate poule;
-
 use poule::{Dirty, Pool};
 
 #[test]
@@ -51,20 +49,22 @@ pub fn test_depleting_pool() {
         );
     }
 
-    assert!(pool
-        .checkout(|| {
+    assert!(
+        pool.checkout(|| {
             println!("initializing element B");
             0
         })
-        .is_none());
+        .is_none()
+    );
     drop(vec);
     println!("dropped vec");
-    assert!(pool
-        .checkout(|| {
+    assert!(
+        pool.checkout(|| {
             println!("initializing element C");
             0
         })
-        .is_some());
+        .is_some()
+    );
 }
 
 #[test]

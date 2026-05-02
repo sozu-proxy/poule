@@ -9,11 +9,11 @@ homepage = "https://github.com/sozu-proxy/poule"
 repository = "https://github.com/sozu-proxy/poule"
 readme = "README.md"
 keywords = ["pool"]
-edition = "2018"
+edition = "2024"
+rust-version = "1.85.0"
 exclude = [
     ".gitignore",
-    ".travis.yml",
-    "deploy.sh",
+    ".github/",
     "test/**/*",
 ]
 
@@ -21,7 +21,7 @@ exclude = [
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.48", features = ["Win32_Foundation", "Win32_System_Memory"] }
+windows-sys = { version = "0.61", features = ["Win32_System_Memory"] }
 
 [[test]]
 name = "test"
